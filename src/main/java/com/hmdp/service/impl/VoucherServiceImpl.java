@@ -14,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.Resource;
 import java.util.List;
 
+import static com.hmdp.utils.RedisConstants.SECKILL_STOCK_KEY;
+
 /**
  * <p>
  *  服务实现类
@@ -50,8 +52,7 @@ public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher> impl
         seckillVoucher.setBeginTime(voucher.getBeginTime());
         seckillVoucher.setEndTime(voucher.getEndTime());
         seckillVoucherService.save(seckillVoucher);
-        stringRedisTemplate.opsForValue().set("seckill:stock:"+voucher.getId(),voucher.getStock().toString());
-
+        stringRedisTemplate.opsForValue().set(SECKILL_STOCK_KEY + voucher.getId(), voucher.getStock().toString());
     }
 
 }
