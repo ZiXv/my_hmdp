@@ -25,10 +25,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 /**
  * <p>
@@ -235,24 +232,41 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         // 一人一单逻辑
         Long userId = voucherOrder.getUserId();
         Long voucherId = voucherOrder.getVoucherId();
-        synchronized (userId.toString().intern()) {
-            int count = Math.toIntExact(query().eq("voucher_id", voucherId).eq("user_id", userId).count());
-            if (count > 0) {
-                log.error("你已经抢过优惠券了哦");
+        RLock redisLock = redissonClient.getLock("order:" + userId);
+        boolean isLock = redisLock.tryLock();
+        try {
+            if (!isLock) {
+                // 获取锁失败，说明该用户已有线程在下单
+                log.error("不允许重复下单！userId={}", userId);
                 return;
             }
-            //5. 扣减库存
+            int count = Math.toIntExact(query()
+                    .eq("voucher_id", voucherId)
+                    .eq("user_id", userId)
+                    .count());
+            if (count > 0) {
+                log.error("你已经抢过优惠券了哦！");
+                return;
+            }
             boolean success = seckillVoucherService.update()
-                    .setSql("stock = stock - 1")
+                    .setSql("stock = stock - 1") // stock=stock-1
                     .eq("voucher_id", voucherId)
                     .gt("stock", 0)
                     .update();
             if (!success) {
-                log.error("库存不足");
+                // 库存不足
+                log.error("库存不足！");
+                return;
             }
-            //7. 将订单数据保存到表中
+
+            // 5. 将订单数据保存到表中
             save(voucherOrder);
+        } finally {
+            if (isLock) {
+                redisLock.unlock();
+            }
         }
+
     }
 
 
