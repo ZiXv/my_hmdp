@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 
 import static com.hmdp.utils.RedisConstants.SHOP_GEO_KEY;
 
-
 @SpringBootTest
 @Slf4j
 class HmDianPingApplicationTests {
@@ -137,6 +136,8 @@ class HmDianPingApplicationTests {
             }
         }
     }
+
+
 
 
 }
